@@ -1,7 +1,7 @@
 import swapper
 
 from .base.config import AbstractConfig
-from .base.device import AbstractDevice
+from .base.device import AbstractDevice, AbstractAdoptableDevice
 from .base.device_group import AbstractDeviceGroup
 from .base.multitenancy import (
     AbstractOrganizationConfigSettings,
@@ -10,6 +10,15 @@ from .base.multitenancy import (
 from .base.tag import AbstractTaggedTemplate, AbstractTemplateTag
 from .base.template import AbstractTemplate
 from .base.vpn import AbstractVpn, AbstractVpnClient
+
+class AdoptableDevice(AbstractAdoptableDevice):
+    """
+    Concrete adoptable device model
+    """
+
+    class Meta(AbstractAdoptableDevice.Meta):
+        abstract = False
+        swappable = swapper.swappable_setting('config', 'AdoptableDevice')
 
 
 class Device(AbstractDevice):

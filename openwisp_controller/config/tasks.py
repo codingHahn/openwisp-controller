@@ -1,6 +1,8 @@
 import logging
 
 import requests
+import subprocess
+from datetime import datetime
 from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 from django.conf import settings
@@ -10,6 +12,62 @@ from swapper import load_model
 from openwisp_utils.tasks import OpenwispCeleryTask
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(soft_time_limit=60)
+def update_adoptable_antenna_list():
+    # Search mdns domain _wisp-unmanaged._tcp.local
+    # Look up if antennas are already registered and update accordingly
+    # clean up not seen antennas after 2 tries
+    mdns_response = subprocess.check_output('avahi-browse _openwisp-unmanaged._tcp -trp').split('\n')
+    AdoptableDevice = load_model('config', 'AdoptableDevice')
+
+    for antenna in mdns_response:
+        if antenna.startswith('='):
+            # 0: '-', '+' or '='. Means removed, added and resolved
+            # 1: interface name
+            # 2: IPv4/IPv6
+            # 3: hostname
+            # 4: domain
+            # 5: domain tld
+            # 6:
+            # 7: IP
+            # 8: port
+            # 9 - n: TXT records
+            antenna = antenna.split(';')
+
+            records = dict()
+
+            # TXT records arrive as 'key=value' pairs beginning at index 9
+            # These include mac address and version information about the antennas
+            for txt in antenna[9:]:
+                t = txt.split('=', maxsplit=1)
+                records[t[0]] = t[1]
+
+            if records.get('mac') == None or records.get('os_version') == None or records.get('version') == None:
+                logger.warning(
+                    f'update_adoptable_antenna_list() invalid antenna announcement: {records}'
+                )
+                # Invalid entry. Skip
+                continue
+
+            now = datetime.now()
+            # Check if antenna is already known
+            known_adoptable = AdoptableDevice.objects.get(ip=antenna[7])
+            if known_adoptable != None:
+                # Update last seen time
+                known_adoptable.last_seen = now
+                known_adoptable.save()
+            else:
+                # Add entry to database
+                # TODO: Generate key and dont hardcode
+                a = AdoptableDevice(records['mac'], 'key',
+                                    records['os_version'], antenna[7],
+                                    now, now)
+                a.save()
+
+
+            pass
 
 
 @shared_task(soft_time_limit=7200)

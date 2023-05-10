@@ -14,6 +14,53 @@ from ..signals import device_group_changed, device_name_changed, management_ip_c
 from ..validators import device_name_validator, mac_address_validator
 from .base import BaseModel
 
+class AbstractAdoptableDevice(OrgMixin, BaseModel):
+    mac_address = models.CharField(
+        max_length=17,
+        db_index=True,
+        unique=False,
+        validators=[mac_address_validator],
+        help_text=_('primary mac address'),
+    )
+    key = KeyField(
+        unique=True,
+        blank=True,
+        default=None,
+        db_index=True,
+        help_text=_('unique adoption key'),
+    )
+    os = models.CharField(
+        _('operating system'),
+        blank=True,
+        db_index=True,
+        max_length=128,
+        help_text=_('operating system identifier'),
+    )
+    last_ip = models.GenericIPAddressField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text=_(
+            'indicates the IP address logged from '
+            'the last request coming from the device'
+        ),
+    )
+    last_seen = models.DateTimeField(
+            help_text = _('device last seen at'),
+    )
+    first_seen = models.DateTimeField(
+            help_text = _('device last seen at'),
+    )
+
+    class Meta:
+        unique_together = (
+            ('mac_address', 'organization'),
+            ('os', 'organization'),
+        )
+        abstract = True
+        verbose_name = app_settings.DEVICE_VERBOSE_NAME[0]
+        verbose_name_plural = app_settings.DEVICE_VERBOSE_NAME[1]
+
 
 class AbstractDevice(OrgMixin, BaseModel):
     """

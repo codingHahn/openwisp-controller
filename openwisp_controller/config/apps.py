@@ -46,6 +46,7 @@ class ConfigConfig(AppConfig):
         self.notification_cache_update()
 
     def __setmodels__(self):
+        self.adoptable_device_model = load_model('config', 'AdoptableDevice')
         self.device_model = load_model('config', 'Device')
         self.devicegroup_model = load_model('config', 'DeviceGroup')
         self.config_model = load_model('config', 'Config')
